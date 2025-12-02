@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Logs
+*.log
+
+# Database files
+*.sqlite3
+
+# Alembic migration scripts (if generated and not meant to be tracked)
+
+alembic/versions/
+
+firebase-service-account.json
+
+
