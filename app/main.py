@@ -7,7 +7,7 @@ from firebase_admin import credentials
 import os
 
 from .database import Base, engine
-from .routers import ai, auth, notes, payments, tasks, subscriptions, friends, calendar, habits
+from .routers import ai, auth, notes, payments, tasks, subscriptions, friends, calendar, habits, challenges
 from .scheduler import deactivate_expired_subscriptions, send_task_reminders
 from .utils.cleanup_old_habit_events import cleanup_old_habit_events
 from .utils.maintain_habit_schedules import maintain_habit_schedules
@@ -103,6 +103,7 @@ app.include_router(subscriptions.router)
 app.include_router(friends.router)
 app.include_router(calendar.router)
 app.include_router(habits.router)
+app.include_router(challenges.router)
 app.include_router(ai.router)
 
 
