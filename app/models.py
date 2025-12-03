@@ -179,3 +179,6 @@ class Habit(Base):
     # Relationships
     user = relationship("User", back_populates="habits")
     calendar_events = relationship("CalendarEvent", back_populates="habit", cascade="all, delete-orphan")
+
+# --- Challenge System Models ---
+from .models.challenges import Challenge, ChallengeParticipant, Quiz, Question, QuestionOption
