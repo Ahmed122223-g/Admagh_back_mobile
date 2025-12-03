@@ -11,6 +11,7 @@ from .routers import ai, auth, notes, payments, tasks, subscriptions, friends, c
 from .scheduler import deactivate_expired_subscriptions, send_task_reminders
 from .utils.cleanup_old_habit_events import cleanup_old_habit_events
 from .utils.maintain_habit_schedules import maintain_habit_schedules
+from .utils.challenge_scheduler import process_expired_challenges
 
 scheduler = AsyncIOScheduler()
 
@@ -60,6 +61,7 @@ async def lifespan(app: FastAPI):
     # Habit management jobs
     scheduler.add_job(cleanup_old_habit_events, 'cron', hour=0, minute=0)  # Daily at midnight
     scheduler.add_job(maintain_habit_schedules, 'cron', hour=1, minute=0)  # Daily at 1 AM
+    scheduler.add_job(process_expired_challenges, 'interval', minutes=15) # Check every 15 mins
     
     scheduler.start()
     print("Scheduler started...")
