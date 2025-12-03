@@ -7,7 +7,7 @@ from sqlalchemy import or_, and_
 from ..database import get_db
 from ..models import User
 from ..models.challenges import Challenge, ChallengeParticipant, Quiz, Question, QuestionOption
-from ..schemas.challenges import (
+from ..schemas_challenges import (
     ChallengeCreate, ChallengeResponse, ChallengeListResponse, ChallengeSubmission
 )
 from ..dependencies import get_current_user # Assuming this exists
