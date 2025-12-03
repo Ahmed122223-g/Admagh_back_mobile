@@ -35,6 +35,12 @@ class User(Base):
     email_verification_code_expires_at = Column(DateTime, nullable=True)
     last_name_change = Column(DateTime, nullable=True)  # Track last time user changed their name
     profile_picture = Column(String, nullable=True)  # URL or path to profile picture
+    
+    # Challenge Stats
+    gold_cups = Column(Integer, default=0)
+    silver_cups = Column(Integer, default=0)
+    bronze_cups = Column(Integer, default=0)
+    challenges_count = Column(Integer, default=0)
 
     tasks = relationship("Task", back_populates="owner")
     notes = relationship("Note", back_populates="owner")
