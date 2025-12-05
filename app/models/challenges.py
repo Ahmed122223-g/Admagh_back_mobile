@@ -35,7 +35,7 @@ class ChallengeParticipant(Base):
     end_time = Column(DateTime, nullable=True)
     time_taken_seconds = Column(Integer, nullable=True)
     score = Column(Float, nullable=True) # For quiz
-    rank = Column(Integer, nullable=True)  # 1=Gold, 2=Silver, 3=Bronze
+    # rank = Column(Integer, nullable=True)  # 1=Gold, 2=Silver, 3=Bronze - UNCOMMENT AFTER MIGRATION
     
     challenge = relationship("Challenge", back_populates="participants")
     user = relationship("User")
