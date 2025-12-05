@@ -215,13 +215,49 @@ def get_friend_profile(
         models.Task.completed == True
     ).count()
     
+    # Import Challenge models here to avoid circular imports
+    from .models.challenges import Challenge, ChallengeParticipant
+    
+    # Get challenge statistics
+    total_challenges = db.query(ChallengeParticipant).filter(
+        ChallengeParticipant.user_id == friend_id
+    ).count()
+    
+    # Count trophies based on rank in completed challenges
+    gold_trophies = db.query(ChallengeParticipant).filter(
+        ChallengeParticipant.user_id == friend_id,
+        ChallengeParticipant.rank == 1
+    ).count()
+    
+    silver_trophies = db.query(ChallengeParticipant).filter(
+        ChallengeParticipant.user_id == friend_id,
+        ChallengeParticipant.rank == 2
+    ).count()
+    
+    bronze_trophies = db.query(ChallengeParticipant).filter(
+        ChallengeParticipant.user_id == friend_id,
+        ChallengeParticipant.rank == 3
+    ).count()
+    
+    # Count challenges won (rank 1)
+    challenges_won = gold_trophies
+    
     return {
         "id": friend.id,
         "name": friend.name,
         "email": friend.email,
         "created_at": friend.created_at,
         "total_tasks": total_tasks,
-        "completed_tasks": completed_tasks
+        "completed_tasks": completed_tasks,
+        "total_challenges": total_challenges,
+        "challenges_won": challenges_won,
+        "gold_trophies": gold_trophies,
+        "silver_trophies": silver_trophies,
+        "bronze_trophies": bronze_trophies,
+        "individual_challenges_won": 0,  # Can be calculated if needed
+        "group_challenges_won": 0,  # Can be calculated if needed
+        "individual_trophies": 0,  # Can be calculated if needed
+        "profile_picture": friend.profile_picture,
     }
 
 
