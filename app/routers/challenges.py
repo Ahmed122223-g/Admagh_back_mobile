@@ -10,7 +10,7 @@ from ..models.challenges import Challenge, ChallengeParticipant, Quiz, Question,
 from ..schemas_challenges import (
     ChallengeCreate, ChallengeResponse, ChallengeListResponse, ChallengeSubmission
 )
-from ..dependencies import get_current_user
+from ..dependencies import get_current_user # Assuming this exists
 
 router = APIRouter(
     prefix="/challenges",
@@ -23,9 +23,11 @@ def create_challenge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # 1. Validation
     if challenge_data.is_quiz and not challenge_data.quiz_data:
         raise HTTPException(status_code=400, detail="Quiz data required for quiz challenge")
 
+    # 2. Create Challenge
     expires_at = datetime.utcnow() + timedelta(hours=challenge_data.lifespan_hours)
     
     db_challenge = Challenge(
@@ -38,8 +40,9 @@ def create_challenge(
         expires_at=expires_at
     )
     db.add(db_challenge)
-    db.flush()
+    db.flush() # Get ID
 
+    # 3. Create Quiz if needed
     if challenge_data.is_quiz and challenge_data.quiz_data:
         db_quiz = Quiz(
             challenge_id=db_challenge.id,
@@ -66,7 +69,10 @@ def create_challenge(
                 )
                 db.add(db_option)
 
+    # 4. Add Participants
+    # Invite friends
     for friend_id in challenge_data.invited_friend_ids:
+        # Verify friend exists (optional but good)
         participant = ChallengeParticipant(
             challenge_id=db_challenge.id,
             user_id=friend_id,
@@ -90,6 +96,11 @@ def get_challenges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Get challenges where user is creator OR participant
+    # Note: If quiz, creator might not be participant, but we should still show it?
+    # "List of challenges" usually implies ones I'm participating in or created.
+    
+    # Subquery for participation
     participant_subquery = db.query(ChallengeParticipant.challenge_id).filter(
         ChallengeParticipant.user_id == current_user.id
     ).subquery()
@@ -101,8 +112,10 @@ def get_challenges(
         )
     ).all()
 
+    # Map to response
     results = []
     for c in challenges:
+        # Determine status
         my_participant = next((p for p in c.participants if p.user_id == current_user.id), None)
         my_status = my_participant.status if my_participant else "creator"
         
@@ -132,10 +145,12 @@ def get_challenge_details(
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
     
+    # Check access (creator or participant)
     is_participant = any(p.user_id == current_user.id for p in challenge.participants)
     if challenge.creator_id != current_user.id and not is_participant:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    # Manually map participants to include user names
     from ..schemas_challenges import ParticipantResponse
     participants_with_names = []
     for p in challenge.participants:
@@ -234,15 +249,18 @@ def finish_challenge(
 
     participant.end_time = datetime.utcnow()
     
+    # Calculate time taken
     diff = participant.end_time - participant.start_time
     participant.time_taken_seconds = int(diff.total_seconds())
     participant.status = "completed"
 
+    # Calculate Score if Quiz
     if challenge.is_quiz and challenge.quiz:
         score = 0
         total_questions = len(challenge.quiz.questions)
         
-        correct_map = {}
+        # Create a map of correct answers
+        correct_map = {} # question_id -> correct_option_id
         for q in challenge.quiz.questions:
             for opt in q.options:
                 if opt.is_correct:
@@ -260,38 +278,75 @@ def finish_challenge(
 
     db.commit()
     
-    _calculate_ranks_if_completed(db, challenge)
+    # Check if all participants have completed and award trophies
+    _check_and_award_trophies(challenge_id, db)
     
     return {"status": "completed", "score": participant.score, "time_taken": participant.time_taken_seconds}
 
 
-def _calculate_ranks_if_completed(db: Session, challenge: Challenge):
-    """Calculate ranks for all participants if everyone has completed."""
-    active_participants = [p for p in challenge.participants if p.status in ("accepted", "in_progress", "completed")]
+def _check_and_award_trophies(challenge_id: int, db: Session):
+    """
+    Check if all participants completed and award trophies.
+    Rules:
+    - If total participants <= 10: 1st place gets gold trophy
+    - If total participants > 10: 1st gets gold, 2nd gets silver, 3rd gets bronze
     
+    Ranking is based on:
+    - For quiz challenges: highest score, then fastest time
+    - For non-quiz challenges: fastest time
+    """
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not challenge or challenge.trophies_awarded:
+        return  # Already awarded or challenge not found
+    
+    # Get all participants who accepted (not rejected)
+    active_participants = [p for p in challenge.participants if p.status in ("accepted", "completed", "in_progress")]
+    
+    # Check if all active participants have completed
     completed_participants = [p for p in active_participants if p.status == "completed"]
     
     if len(completed_participants) < len(active_participants):
-        return
+        return  # Not all participants have completed yet
     
     if len(completed_participants) == 0:
-        return
+        return  # No one completed
     
+    # Sort participants by ranking
     if challenge.is_quiz:
+        # For quiz: sort by score (descending), then by time (ascending)
         sorted_participants = sorted(
             completed_participants,
             key=lambda p: (-(p.score or 0), p.time_taken_seconds or float('inf'))
         )
     else:
+        # For non-quiz: sort by time (ascending)
         sorted_participants = sorted(
             completed_participants,
             key=lambda p: p.time_taken_seconds or float('inf')
         )
     
-    for i, p in enumerate(sorted_participants[:3]):
-        p.rank = i + 1
+    total_participants = len(completed_participants)
     
+    # Award trophies
+    if total_participants >= 1:
+        # 1st place gets gold
+        winner = db.query(User).filter(User.id == sorted_participants[0].user_id).first()
+        if winner:
+            winner.gold_trophies = (winner.gold_trophies or 0) + 1
+    
+    if total_participants > 10:
+        # If more than 10 participants, also award silver and bronze
+        if len(sorted_participants) >= 2:
+            second_place = db.query(User).filter(User.id == sorted_participants[1].user_id).first()
+            if second_place:
+                second_place.silver_trophies = (second_place.silver_trophies or 0) + 1
+        
+        if len(sorted_participants) >= 3:
+            third_place = db.query(User).filter(User.id == sorted_participants[2].user_id).first()
+            if third_place:
+                third_place.bronze_trophies = (third_place.bronze_trophies or 0) + 1
+    
+    # Mark trophies as awarded
+    challenge.trophies_awarded = True
     db.commit()
-
-
 
