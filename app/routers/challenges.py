@@ -152,7 +152,37 @@ def get_challenge_details(
     if challenge.creator_id != current_user.id and not is_participant:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    return challenge
+    # Manually map participants to include user names
+    from ..schemas_challenges import ParticipantResponse
+    participants_with_names = []
+    for p in challenge.participants:
+        participants_with_names.append(ParticipantResponse(
+            id=p.id,
+            user_id=p.user_id,
+            status=p.status,
+            start_time=p.start_time,
+            end_time=p.end_time,
+            time_taken_seconds=p.time_taken_seconds,
+            score=p.score,
+            user_name=p.user.name if p.user else None
+        ))
+
+    # Create response manually to include participant names
+    response_data = {
+        "id": challenge.id,
+        "creator_id": challenge.creator_id,
+        "name": challenge.name,
+        "description": challenge.description,
+        "duration_minutes": challenge.duration_minutes,
+        "is_quiz": challenge.is_quiz,
+        "lifespan_hours": challenge.lifespan_hours,
+        "created_at": challenge.created_at,
+        "expires_at": challenge.expires_at,
+        "participants": participants_with_names,
+        "quiz": challenge.quiz
+    }
+    
+    return response_data
 
 @router.post("/{challenge_id}/respond")
 def respond_to_invite(
