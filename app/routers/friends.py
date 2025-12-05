@@ -215,37 +215,53 @@ def get_friend_profile(
         models.Task.completed == True
     ).count()
     
-    # Challenge statistics - simplified version
-    total_challenges = 0
-    gold_trophies = 0
-    silver_trophies = 0
-    bronze_trophies = 0
-    challenges_won = 0
+    # Get challenge statistics
+    from ..models.challenges import ChallengeParticipant, Challenge
     
-    try:
-        from ..models.challenges import ChallengeParticipant
-        total_challenges = db.query(ChallengeParticipant).filter(
-            ChallengeParticipant.user_id == friend_id
-        ).count()
-    except Exception as e:
-        print(f"Error querying challenges: {e}")
+    # Total challenges participated in
+    total_challenges = db.query(ChallengeParticipant).filter(
+        ChallengeParticipant.user_id == friend_id,
+        ChallengeParticipant.status == "completed"
+    ).count()
+    
+    # Count challenges won (1st place)
+    challenges_won = 0
+    completed_participations = db.query(ChallengeParticipant).filter(
+        ChallengeParticipant.user_id == friend_id,
+        ChallengeParticipant.status == "completed"
+    ).all()
+    
+    for participation in completed_participations:
+        challenge = db.query(Challenge).filter(Challenge.id == participation.challenge_id).first()
+        if challenge and challenge.trophies_awarded:
+            # Get all completed participants for this challenge
+            all_completed = db.query(ChallengeParticipant).filter(
+                ChallengeParticipant.challenge_id == challenge.id,
+                ChallengeParticipant.status == "completed"
+            ).all()
+            
+            # Sort by ranking
+            if challenge.is_quiz:
+                sorted_p = sorted(all_completed, key=lambda p: (-(p.score or 0), p.time_taken_seconds or float('inf')))
+            else:
+                sorted_p = sorted(all_completed, key=lambda p: p.time_taken_seconds or float('inf'))
+            
+            # Check if user is 1st place
+            if sorted_p and sorted_p[0].user_id == friend_id:
+                challenges_won += 1
     
     return {
         "id": friend.id,
         "name": friend.name,
         "email": friend.email,
-        "created_at": str(friend.created_at),
+        "created_at": friend.created_at,
         "total_tasks": total_tasks,
         "completed_tasks": completed_tasks,
         "total_challenges": total_challenges,
         "challenges_won": challenges_won,
-        "gold_trophies": gold_trophies,
-        "silver_trophies": silver_trophies,
-        "bronze_trophies": bronze_trophies,
-        "individual_challenges_won": 0,
-        "group_challenges_won": 0,
-        "individual_trophies": 0,
-        "profile_picture": getattr(friend, 'profile_picture', None),
+        "gold_trophies": friend.gold_trophies or 0,
+        "silver_trophies": friend.silver_trophies or 0,
+        "bronze_trophies": friend.bronze_trophies or 0,
     }
 
 
