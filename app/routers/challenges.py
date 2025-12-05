@@ -80,14 +80,12 @@ def create_challenge(
         )
         db.add(participant)
 
-    # If NOT quiz, creator is also a participant
-    if not challenge_data.is_quiz:
-        creator_participant = ChallengeParticipant(
-            challenge_id=db_challenge.id,
-            user_id=current_user.id,
-            status="accepted" # Auto-accept
-        )
-        db.add(creator_participant)
+    creator_participant = ChallengeParticipant(
+        challenge_id=db_challenge.id,
+        user_id=current_user.id,
+        status="accepted" 
+    )
+    db.add(creator_participant)
 
     db.commit()
     db.refresh(db_challenge)
