@@ -216,7 +216,7 @@ def get_friend_profile(
     ).count()
     
     # Import Challenge models here to avoid circular imports
-    from .models.challenges import Challenge, ChallengeParticipant
+    from ..models.challenges import Challenge, ChallengeParticipant
     
     # Get challenge statistics
     total_challenges = db.query(ChallengeParticipant).filter(
