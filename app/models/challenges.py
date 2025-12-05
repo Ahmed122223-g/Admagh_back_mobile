@@ -28,14 +28,14 @@ class ChallengeParticipant(Base):
     id = Column(Integer, primary_key=True, index=True)
     challenge_id = Column(Integer, ForeignKey("challenges.id"), nullable=False)
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
-    status = Column(String, default="invited")  # invited, accepted, rejected, in_progress, completed
+    status = Column(String, default="invited")
     
     # Results
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
     time_taken_seconds = Column(Integer, nullable=True)
-    score = Column(Float, nullable=True) # For quiz
-    # rank = Column(Integer, nullable=True)  # 1=Gold, 2=Silver, 3=Bronze - UNCOMMENT AFTER MIGRATION
+    score = Column(Float, nullable=True)
+    rank = Column(Integer, nullable=True) 
     
     challenge = relationship("Challenge", back_populates="participants")
     user = relationship("User")
@@ -45,7 +45,7 @@ class Quiz(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     challenge_id = Column(Integer, ForeignKey("challenges.id"), nullable=False, unique=True)
-    duration_minutes = Column(Integer, nullable=False) # Duration specifically for the quiz part
+    duration_minutes = Column(Integer, nullable=False) 
 
     challenge = relationship("Challenge", back_populates="quiz")
     questions = relationship("Question", back_populates="quiz", cascade="all, delete-orphan")
