@@ -38,13 +38,13 @@ def list_unused_codes():
 
 def add_new_codes(plan_type: str, quantity: int):
     """Generates and adds new codes to the activation file."""
-    if plan_type not in ["monthly", "yearly", "lifetime"]:
+    if plan_type not in ["weekly", "monthly", "yearly", "lifetime"]:
         print(
-            f"Error: Invalid plan type '{plan_type}'. Must be one of: monthly, yearly, lifetime."
+            f"Error: Invalid plan type '{plan_type}'. Must be one of: weekly, monthly, yearly, lifetime."
         )
         return
 
-    prefix_map = {"monthly": "MTH", "yearly": "YRL", "lifetime": "LTM"}
+    prefix_map = {"weekly": "WKL", "monthly": "MTH", "yearly": "YRL", "lifetime": "LTM"}
     prefix = prefix_map[plan_type]
 
     print(f"Generating {quantity} new {plan_type} code(s)...")
@@ -106,7 +106,7 @@ def main():
         "--plan",
         type=str,
         required=True,
-        choices=["monthly", "yearly", "lifetime"],
+        choices=["weekly", "monthly", "yearly", "lifetime"],
         help="The subscription plan type.",
     )
     parser_add.add_argument(
