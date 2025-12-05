@@ -277,4 +277,45 @@ def finish_challenge(
             participant.score = 0
 
     db.commit()
+    
+    # Check if all accepted participants have completed - then calculate ranks
+    _calculate_ranks_if_completed(db, challenge)
+    
     return {"status": "completed", "score": participant.score, "time_taken": participant.time_taken_seconds}
+
+
+def _calculate_ranks_if_completed(db: Session, challenge: Challenge):
+    """Calculate ranks for all participants if everyone has completed."""
+    # Get all accepted/in_progress participants (not rejected, not just invited)
+    active_participants = [p for p in challenge.participants if p.status in ("accepted", "in_progress", "completed")]
+    
+    # Check if all active participants are completed
+    completed_participants = [p for p in active_participants if p.status == "completed"]
+    
+    if len(completed_participants) < len(active_participants):
+        # Not everyone has finished yet
+        return
+    
+    if len(completed_participants) == 0:
+        return
+    
+    # Sort participants by score (descending), then by time (ascending)
+    if challenge.is_quiz:
+        # For quiz: higher score is better, then faster time breaks ties
+        sorted_participants = sorted(
+            completed_participants,
+            key=lambda p: (-(p.score or 0), p.time_taken_seconds or float('inf'))
+        )
+    else:
+        # For non-quiz: faster completion time wins
+        sorted_participants = sorted(
+            completed_participants,
+            key=lambda p: p.time_taken_seconds or float('inf')
+        )
+    
+    # Assign ranks (1, 2, 3 only for top 3)
+    for i, p in enumerate(sorted_participants[:3]):
+        p.rank = i + 1
+    
+    db.commit()
+
