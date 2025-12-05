@@ -1,73 +1,149 @@
+# app/models/__init__.py
 from datetime import datetime
-from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, ForeignKey, Text, BigInteger, Float
-)
+
+from sqlalchemy import (Boolean, Column, DateTime, Float, ForeignKey, Integer,String, Text, BigInteger, Enum, func, Date, JSON)
 from sqlalchemy.orm import relationship
+
 from ..database import Base
 
-class Challenge(Base):
-    __tablename__ = "challenges"
+
+# --- نموذج المستخدم (User) ---
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=False)
+    firebase_uid = Column(String, unique=True, index=True, nullable=True)
+    name = Column(String, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+    verification_token = Column(String, nullable=True)
+    fcm_token = Column(String, nullable=True)
+    is_unlocked = Column(Boolean, default=False)
+    plan = Column(String, nullable=True)
+    subscription_id = Column(String, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    is_premium = Column(Boolean, default=False)  
+    premium_plan = Column(String, nullable=True)  
+    created_at = Column(DateTime, server_default=func.now())
+    reset_password_token = Column(String, nullable=True)
+    reset_password_token_expires = Column(DateTime, nullable=True)
+    reset_password_code = Column(String, nullable=True)
+    reset_password_code_expires = Column(DateTime, nullable=True)
+    email_verification_code = Column(String, nullable=True)
+    email_verification_code_expires_at = Column(DateTime, nullable=True)
+    
+    # Challenge Trophies
+    gold_trophies = Column(Integer, default=0, nullable=False)
+    silver_trophies = Column(Integer, default=0, nullable=False)
+    bronze_trophies = Column(Integer, default=0, nullable=False)
+
+    tasks = relationship("Task", back_populates="owner")
+    notes = relationship("Note", back_populates="owner")
+    friendships_sent = relationship("Friendship", foreign_keys="[Friendship.user_id]", back_populates="user")
+    friendships_received = relationship("Friendship", foreign_keys="[Friendship.friend_id]", back_populates="friend")
+    
+    habits = relationship("Habit", back_populates="user")
+
+
+# --- Task Feature Models ---
+class Task(Base):
+    __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    creator_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
-    name = Column(String, nullable=False)
+    owner_id = Column(BigInteger, ForeignKey("users.id"))
+    title = Column(String, index=True)
     description = Column(Text, nullable=True)
-    duration_minutes = Column(Integer, nullable=False)  # Duration of the challenge itself
-    is_quiz = Column(Boolean, default=False)
-    lifespan_hours = Column(Integer, default=24)
+    priority = Column(String, default="متوسطة")
+    status = Column(String, default="لم تبدأ")
+    due_date = Column(DateTime)
+    category = Column(String, default="عام")
+    completed = Column(Boolean, default=False)
+    estimated_hours = Column(Float, default=1.0)
     created_at = Column(DateTime, default=datetime.utcnow)
-    expires_at = Column(DateTime, nullable=False) # calculated based on lifespan
-
-    creator = relationship("User", backref="created_challenges")
-    participants = relationship("ChallengeParticipant", back_populates="challenge", cascade="all, delete-orphan")
-    quiz = relationship("Quiz", uselist=False, back_populates="challenge", cascade="all, delete-orphan")
-
-class ChallengeParticipant(Base):
-    __tablename__ = "challenge_participants"
-
-    id = Column(Integer, primary_key=True, index=True)
-    challenge_id = Column(Integer, ForeignKey("challenges.id"), nullable=False)
-    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
-    status = Column(String, default="invited")
-    
-    # Results
+    is_active = Column(Boolean, default=False)
     start_time = Column(DateTime, nullable=True)
-    end_time = Column(DateTime, nullable=True)
-    time_taken_seconds = Column(Integer, nullable=True)
-    score = Column(Float, nullable=True)
-    rank = Column(Integer, nullable=True) 
+    remaining_time_seconds = Column(Integer, default=0, nullable=False)
+    time_spent_seconds = Column(Integer, default=0, nullable=False)
+    initial_duration_seconds = Column(Integer, default=3600, nullable=False)
+    last_run_date = Column(DateTime, nullable=True)
+    progress_details = Column(Text, nullable=True)
+    owner = relationship("User", back_populates="tasks")
+
+# --- Note Feature Models ---
+class Note(Base):
+    __tablename__ = "notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(BigInteger, ForeignKey("users.id"))
+    title = Column(String)
+    content = Column(Text)
+    category = Column(String, default="أفكار")
+    is_starred = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    owner = relationship("User", back_populates="notes")
+
+# --- Activation Code Feature Models ---
+class ActivationCode(Base):
+    __tablename__ = "activation_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)
+    plan_type = Column(String, nullable=False)
+    is_used = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    used_at = Column(DateTime, nullable=True)
+    used_by_user_id = Column(BigInteger, ForeignKey("users.id"), nullable=True)
+
+    used_by = relationship("User")
+
+# --- Friendship Feature Models ---
+class Friendship(Base):
+    __tablename__ = "friendships"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), index=True)
+    friend_id = Column(BigInteger, ForeignKey("users.id"), index=True)
+    status = Column(String, default="pending")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+    friend = relationship("User", foreign_keys=[friend_id])
+
+
+# --- Custom Calendar System ---
+class CalendarEvent(Base):
+    __tablename__ = "calendar_events"
     
-    challenge = relationship("Challenge", back_populates="participants")
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+    habit_id = Column(Integer, ForeignKey("habits.id"), nullable=True)
+    event_type = Column(String(20), nullable=False, default='task', index=True)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    notification_sent = Column(Boolean, default=False)
+    
     user = relationship("User")
+    task = relationship("Task")
+    habit = relationship("Habit", back_populates="calendar_events")
 
-class Quiz(Base):
-    __tablename__ = "quizzes"
 
-    id = Column(Integer, primary_key=True, index=True)
-    challenge_id = Column(Integer, ForeignKey("challenges.id"), nullable=False, unique=True)
-    duration_minutes = Column(Integer, nullable=False) 
+# --- Import models from separate files ---
+from .habit import Habit
 
-    challenge = relationship("Challenge", back_populates="quiz")
-    questions = relationship("Question", back_populates="quiz", cascade="all, delete-orphan")
-
-class Question(Base):
-    __tablename__ = "questions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=False)
-    text = Column(Text, nullable=False)
-    type = Column(String, nullable=False) # 'mcq', 'true_false'
-    explanation = Column(Text, nullable=True)
-
-    quiz = relationship("Quiz", back_populates="questions")
-    options = relationship("QuestionOption", back_populates="question", cascade="all, delete-orphan")
-
-class QuestionOption(Base):
-    __tablename__ = "question_options"
-
-    id = Column(Integer, primary_key=True, index=True)
-    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
-    text = Column(String, nullable=False)
-    is_correct = Column(Boolean, default=False)
-
-    question = relationship("Question", back_populates="options")
+# Export all models
+__all__ = [
+    'User',
+    'Task',
+    'Note',
+    'ActivationCode',
+    'Friendship',
+    'CalendarEvent',
+    'Habit',
+]
