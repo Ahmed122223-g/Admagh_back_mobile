@@ -33,6 +33,11 @@ class User(Base):
     reset_password_code_expires = Column(DateTime, nullable=True)
     email_verification_code = Column(String, nullable=True)
     email_verification_code_expires_at = Column(DateTime, nullable=True)
+    
+    # Challenge Trophies
+    gold_trophies = Column(Integer, default=0, nullable=False)
+    silver_trophies = Column(Integer, default=0, nullable=False)
+    bronze_trophies = Column(Integer, default=0, nullable=False)
 
     tasks = relationship("Task", back_populates="owner")
     notes = relationship("Note", back_populates="owner")
