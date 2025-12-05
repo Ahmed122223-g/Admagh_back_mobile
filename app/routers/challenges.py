@@ -167,10 +167,10 @@ def get_challenge_details(
             user_name=p.user.name if p.user else None
         ))
 
-    # Create response manually to include participant names
     response_data = {
         "id": challenge.id,
         "creator_id": challenge.creator_id,
+        "creator_name": challenge.creator.name if challenge.creator else None,
         "name": challenge.name,
         "description": challenge.description,
         "duration_minutes": challenge.duration_minutes,
