@@ -10,7 +10,7 @@ from ..models.challenges import Challenge, ChallengeParticipant, Quiz, Question,
 from ..schemas_challenges import (
     ChallengeCreate, ChallengeResponse, ChallengeListResponse, ChallengeSubmission
 )
-from ..dependencies import get_current_user # Assuming this exists
+from ..dependencies import get_current_user
 
 router = APIRouter(
     prefix="/challenges",
@@ -23,11 +23,9 @@ def create_challenge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 1. Validation
     if challenge_data.is_quiz and not challenge_data.quiz_data:
         raise HTTPException(status_code=400, detail="Quiz data required for quiz challenge")
 
-    # 2. Create Challenge
     expires_at = datetime.utcnow() + timedelta(hours=challenge_data.lifespan_hours)
     
     db_challenge = Challenge(
@@ -40,9 +38,8 @@ def create_challenge(
         expires_at=expires_at
     )
     db.add(db_challenge)
-    db.flush() # Get ID
+    db.flush()
 
-    # 3. Create Quiz if needed
     if challenge_data.is_quiz and challenge_data.quiz_data:
         db_quiz = Quiz(
             challenge_id=db_challenge.id,
@@ -69,10 +66,7 @@ def create_challenge(
                 )
                 db.add(db_option)
 
-    # 4. Add Participants
-    # Invite friends
     for friend_id in challenge_data.invited_friend_ids:
-        # Verify friend exists (optional but good)
         participant = ChallengeParticipant(
             challenge_id=db_challenge.id,
             user_id=friend_id,
@@ -96,11 +90,6 @@ def get_challenges(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Get challenges where user is creator OR participant
-    # Note: If quiz, creator might not be participant, but we should still show it?
-    # "List of challenges" usually implies ones I'm participating in or created.
-    
-    # Subquery for participation
     participant_subquery = db.query(ChallengeParticipant.challenge_id).filter(
         ChallengeParticipant.user_id == current_user.id
     ).subquery()
@@ -112,10 +101,8 @@ def get_challenges(
         )
     ).all()
 
-    # Map to response
     results = []
     for c in challenges:
-        # Determine status
         my_participant = next((p for p in c.participants if p.user_id == current_user.id), None)
         my_status = my_participant.status if my_participant else "creator"
         
@@ -145,12 +132,10 @@ def get_challenge_details(
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
     
-    # Check access (creator or participant)
     is_participant = any(p.user_id == current_user.id for p in challenge.participants)
     if challenge.creator_id != current_user.id and not is_participant:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # Manually map participants to include user names
     from ..schemas_challenges import ParticipantResponse
     participants_with_names = []
     for p in challenge.participants:
@@ -249,18 +234,15 @@ def finish_challenge(
 
     participant.end_time = datetime.utcnow()
     
-    # Calculate time taken
     diff = participant.end_time - participant.start_time
     participant.time_taken_seconds = int(diff.total_seconds())
     participant.status = "completed"
 
-    # Calculate Score if Quiz
     if challenge.is_quiz and challenge.quiz:
         score = 0
         total_questions = len(challenge.quiz.questions)
         
-        # Create a map of correct answers
-        correct_map = {} # question_id -> correct_option_id
+        correct_map = {}
         for q in challenge.quiz.questions:
             for opt in q.options:
                 if opt.is_correct:
@@ -278,7 +260,6 @@ def finish_challenge(
 
     db.commit()
     
-    # Check if all accepted participants have completed - then calculate ranks
     _calculate_ranks_if_completed(db, challenge)
     
     return {"status": "completed", "score": participant.score, "time_taken": participant.time_taken_seconds}
@@ -286,36 +267,31 @@ def finish_challenge(
 
 def _calculate_ranks_if_completed(db: Session, challenge: Challenge):
     """Calculate ranks for all participants if everyone has completed."""
-    # Get all accepted/in_progress participants (not rejected, not just invited)
     active_participants = [p for p in challenge.participants if p.status in ("accepted", "in_progress", "completed")]
     
-    # Check if all active participants are completed
     completed_participants = [p for p in active_participants if p.status == "completed"]
     
     if len(completed_participants) < len(active_participants):
-        # Not everyone has finished yet
         return
     
     if len(completed_participants) == 0:
         return
     
-    # Sort participants by score (descending), then by time (ascending)
     if challenge.is_quiz:
-        # For quiz: higher score is better, then faster time breaks ties
         sorted_participants = sorted(
             completed_participants,
             key=lambda p: (-(p.score or 0), p.time_taken_seconds or float('inf'))
         )
     else:
-        # For non-quiz: faster completion time wins
         sorted_participants = sorted(
             completed_participants,
             key=lambda p: p.time_taken_seconds or float('inf')
         )
     
-    # Assign ranks (1, 2, 3 only for top 3)
     for i, p in enumerate(sorted_participants[:3]):
         p.rank = i + 1
     
     db.commit()
+
+
 
