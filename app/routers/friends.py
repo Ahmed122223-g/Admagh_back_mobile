@@ -219,28 +219,37 @@ def get_friend_profile(
     from ..models.challenges import Challenge, ChallengeParticipant
     
     # Get challenge statistics
-    total_challenges = db.query(ChallengeParticipant).filter(
-        ChallengeParticipant.user_id == friend_id
-    ).count()
-    
-    # Count trophies based on rank in completed challenges
-    gold_trophies = db.query(ChallengeParticipant).filter(
-        ChallengeParticipant.user_id == friend_id,
-        ChallengeParticipant.rank == 1
-    ).count()
-    
-    silver_trophies = db.query(ChallengeParticipant).filter(
-        ChallengeParticipant.user_id == friend_id,
-        ChallengeParticipant.rank == 2
-    ).count()
-    
-    bronze_trophies = db.query(ChallengeParticipant).filter(
-        ChallengeParticipant.user_id == friend_id,
-        ChallengeParticipant.rank == 3
-    ).count()
-    
-    # Count challenges won (rank 1)
-    challenges_won = gold_trophies
+    try:
+        total_challenges = db.query(ChallengeParticipant).filter(
+            ChallengeParticipant.user_id == friend_id
+        ).count()
+        
+        # Count trophies based on rank in completed challenges
+        # This will work once the rank column is added to the database
+        gold_trophies = db.query(ChallengeParticipant).filter(
+            ChallengeParticipant.user_id == friend_id,
+            ChallengeParticipant.rank == 1
+        ).count()
+        
+        silver_trophies = db.query(ChallengeParticipant).filter(
+            ChallengeParticipant.user_id == friend_id,
+            ChallengeParticipant.rank == 2
+        ).count()
+        
+        bronze_trophies = db.query(ChallengeParticipant).filter(
+            ChallengeParticipant.user_id == friend_id,
+            ChallengeParticipant.rank == 3
+        ).count()
+        
+        challenges_won = gold_trophies
+    except Exception as e:
+        # If rank column doesn't exist yet, use defaults
+        print(f"Warning: Could not query challenge stats: {e}")
+        total_challenges = 0
+        gold_trophies = 0
+        silver_trophies = 0
+        bronze_trophies = 0
+        challenges_won = 0
     
     return {
         "id": friend.id,
@@ -254,9 +263,9 @@ def get_friend_profile(
         "gold_trophies": gold_trophies,
         "silver_trophies": silver_trophies,
         "bronze_trophies": bronze_trophies,
-        "individual_challenges_won": 0,  # Can be calculated if needed
-        "group_challenges_won": 0,  # Can be calculated if needed
-        "individual_trophies": 0,  # Can be calculated if needed
+        "individual_challenges_won": 0,
+        "group_challenges_won": 0,
+        "individual_trophies": 0,
         "profile_picture": friend.profile_picture,
     }
 
