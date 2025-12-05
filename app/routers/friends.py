@@ -215,11 +215,7 @@ def get_friend_profile(
         models.Task.completed == True
     ).count()
     
-    # Import Challenge models here to avoid circular imports
-    from ..models.challenges import ChallengeParticipant
-    from sqlalchemy import text
-    
-    # Get challenge statistics safely
+    # Challenge statistics - simplified version
     total_challenges = 0
     gold_trophies = 0
     silver_trophies = 0
@@ -227,39 +223,18 @@ def get_friend_profile(
     challenges_won = 0
     
     try:
-        # Count total challenges
+        from ..models.challenges import ChallengeParticipant
         total_challenges = db.query(ChallengeParticipant).filter(
             ChallengeParticipant.user_id == friend_id
         ).count()
-        
-        # Try to count trophies using raw SQL to avoid model column issues
-        try:
-            result = db.execute(text("""
-                SELECT 
-                    COUNT(CASE WHEN rank = 1 THEN 1 END) as gold,
-                    COUNT(CASE WHEN rank = 2 THEN 1 END) as silver,
-                    COUNT(CASE WHEN rank = 3 THEN 1 END) as bronze
-                FROM challenge_participants 
-                WHERE user_id = :user_id
-            """), {"user_id": friend_id}).fetchone()
-            
-            if result:
-                gold_trophies = result[0] or 0
-                silver_trophies = result[1] or 0
-                bronze_trophies = result[2] or 0
-                challenges_won = gold_trophies
-        except Exception as rank_error:
-            # rank column doesn't exist yet, keep defaults
-            print(f"Rank column not available: {rank_error}")
-            
     except Exception as e:
-        print(f"Error querying challenge stats: {e}")
+        print(f"Error querying challenges: {e}")
     
     return {
         "id": friend.id,
         "name": friend.name,
         "email": friend.email,
-        "created_at": friend.created_at,
+        "created_at": str(friend.created_at),
         "total_tasks": total_tasks,
         "completed_tasks": completed_tasks,
         "total_challenges": total_challenges,
@@ -270,7 +245,7 @@ def get_friend_profile(
         "individual_challenges_won": 0,
         "group_challenges_won": 0,
         "individual_trophies": 0,
-        "profile_picture": friend.profile_picture,
+        "profile_picture": getattr(friend, 'profile_picture', None),
     }
 
 
